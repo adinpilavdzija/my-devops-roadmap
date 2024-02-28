@@ -46,6 +46,8 @@ ubuntu
 - `lspci` to list all PCI devices
 - `lsusb` to list USB devices
 
+<br>
+
 - `free -h` or `vmstat` to check the amount of memory used in the system
 - `top` is like a Task Manager for Linux, it will display the processes and the consumption of resources
 - `htop` is an interactive, prettier version.
@@ -166,6 +168,7 @@ touch is /usr/bin/touch
 - `/` is the “root” of a branching tree of folders (also known as directories)
 - At all times you are “in” one part of the system - the command `pwd` (“print working directory”) will show you where you are
 - Generally your prompt is also configured to give you at least some of this information, so if I’m “in” the /etc directory then the prompt might be `steve@202.203.203.22:/etc$` or simply `/etc: $`
+<br>
 
 - `cd` moves to different areas - so `cd /var/log` will take you into the `/var/log` folder
 - You can move “up” the structure by typing `cd ..` 
@@ -174,55 +177,26 @@ touch is /usr/bin/touch
 - `cd ./directory` - change to a directory relative to the current directory
 - `cd ../directory` - move up one level and then into a directory relative to the parent directory
 - `cd -` moves you to the last visited (previous) directory
+<br>
 
 - What files are in a folder? The `ls` (list) command will give you a list of the files, and sub folders. Like many Linux commands, there are options (known as “switches”) to alter the meaning of the command or the output format.
 - By convention, files with a starting character of “.” are considered hidden and we need to use `ls` with the `-a` switch to include them
 - Generally most Linux command will accept one or more “parameters”, and one or more “switches”. Many commands accept a large number of switches, and these can generally be combined (use `ls -ltra`, rather than `ls -l -t -r -a`)
 - In your home directory type `ls -ltra` and look at the far left hand column - those entries with a “d” as the first character on the line are directories (folders) rather than files. They may also be shown in a different color or font - if not, then adding the “–color=auto” switch should do this (i.e. `ls -ltra --color=auto`)
+<br>
 
 - You can make a new folder/directory with the `mkdir` command
-- To delete (or remove) a directory, use `rmdir` if the directory is empty or `rm -r` if there still any files or other directories inside of it.
+- use `rmdir` to remove empty directory
+- use `rm -r` to remove non-empty directory
+- use `rm` to remove a file
 - You can make new empty files with the `touch` command
-- When you want to move file or directory to another directory, you use `mv` and specify the path to move.
-- To delete (or remove) a file, use `rm`.
+- When you want to move file or directory to another directory, you use `mv` and specify the path to move
+<br>
 
 - Learn about `pushd` and `popd` to navigate around multiple directories easily. Running `pushd /var/log` moves you to to the `/var/log`, but keeps track of where you were. You can `pushd` more than one directory at a time. Try it out: `pushd /var/log`, `pushd /dev`, `pushd /etc`, `pushd`, `popd`, `popd`. Note how `pushd` with no arguments switches between the last two _pushed_ directories but [more complex navigation is also possible](https://opensource.com/article/19/8/navigating-bash-shell-pushd-popd). 
 
 
 ## Day 3 - Power trip!
-
-### TASK
-
-- Change the password of your `sudo` user
-
-Switch to user and use `passwd` command
-
-- Change the hostname
-
-`$ sudo hostnamectl set-hostname linuxupskillchallenge`
-
-- Change the timezone
-
-```bash
-$ timedatectl
-               Local time: Tue 2024-02-27 17:29:59 UTC
-           Universal time: Tue 2024-02-27 17:29:59 UTC
-                 RTC time: Tue 2024-02-27 17:29:59
-                Time zone: Etc/UTC (UTC, +0000)
-System clock synchronized: yes
-              NTP service: active
-          RTC in local TZ: no
-ubuntu@linuxupskillchallenge:~$ sudo timedatectl set-timezone Europe/Sarajevo
-ubuntu@linuxupskillchallenge:~$ timedatectl
-               Local time: Tue 2024-02-27 18:30:22 CET
-           Universal time: Tue 2024-02-27 17:30:22 UTC
-                 RTC time: Tue 2024-02-27 17:30:22
-                Time zone: Europe/Sarajevo (CET, +0100)
-System clock synchronized: yes
-              NTP service: active
-          RTC in local TZ: no
-```
----
 
 - **Global**: programs/environments that any user can use, used across the system. A global change affects all users. 
 - **Local** or **By user**: programs/environments that a particular user runs, not available to other users. A local change affects only one user.
@@ -246,20 +220,48 @@ adin:x:1001:
 
 - Use the `passwd` command to change your password
 - In a production system, public keys and/or two factor authentication would be more appropriate than password.
-
 - `/etc/shadow` file is where the hashed passwords are kept. It is a prime target for intruders who aim to grab it and use offline password crackers to discover the passwords.
-
 - Test running the `reboot` command, and then via `sudo` (i.e. `sudo reboot`)
 - Use the `uptime` command to confirm that your server did actually fully restart
+<br>
 
-- command `sudo -i` to fully “becoming root” which can be handy if you have a series of commands to do “as root”
+- use command `sudo -i` to fully “becoming root” which can be handy if you have a series of commands to do “as root”
 - `sudo -i` stands for “sudo interactive” and it launches a new login shell for the root user. This means that it creates a new environment for the root user with the root user’s home directory and shell configuration files. This makes it similar to logging in directly as the root user, and any commands executed from this shell will have the privileges of the root user. `sudo -s` stands for “sudo shell” and it launches a new shell for the root user, but it does not create a new login shell. This means that it does not change the environment or shell configuration files of the current user. Any commands executed from this shell will have the privileges of the root user, but the environment will still be that of the current user.
-
 - Type `exit` or `logout` to get back to your own normal “support” login.
 - Use `less` to view the file `/var/log/auth.log`, where any use of `sudo` is logged
 - You could “filter” this by typing: `grep "sudo" /var/log/auth.log`
+<br>
 
 - `sudo hostnamectl set-hostname mylittlecloudbox` - to rename your server
 - `timedatectl` to check the current setting
 - `timedatectl list-timezones` to get a list of available timezones
 - `sudo timedatectl set-timezone Australia/Sydney` to set a timezone
+
+### TASK
+
+- Change the password of your `sudo` user
+Switch to user and use `passwd` command
+
+- Change the hostname
+`$ sudo hostnamectl set-hostname linuxupskillchallenge`
+
+- Change the timezone
+```bash
+$ timedatectl
+               Local time: Tue 2024-02-27 17:29:59 UTC
+           Universal time: Tue 2024-02-27 17:29:59 UTC
+                 RTC time: Tue 2024-02-27 17:29:59
+                Time zone: Etc/UTC (UTC, +0000)
+System clock synchronized: yes
+              NTP service: active
+          RTC in local TZ: no
+ubuntu@linuxupskillchallenge:~$ sudo timedatectl set-timezone Europe/Sarajevo
+ubuntu@linuxupskillchallenge:~$ timedatectl
+               Local time: Tue 2024-02-27 18:30:22 CET
+           Universal time: Tue 2024-02-27 17:30:22 UTC
+                 RTC time: Tue 2024-02-27 17:30:22
+                Time zone: Europe/Sarajevo (CET, +0100)
+System clock synchronized: yes
+              NTP service: active
+          RTC in local TZ: no
+```
