@@ -97,3 +97,74 @@ $ systemctl status apache2
 - Other capabilities, like log management and user sessions are handled by separate daemons and management utilities (`journald`/`journalctl` and `logind`/`loginctl` respectively).
 
 ## Day 8 - The infamous “grep” and other text processors
+
+### YOUR TASKS TODAY
+
+- Dump out the complete contents of a file with `cat` like this: `cat /var/log/apache2/access.log`
+- Use `less` to open the same file: `less /var/log/apache2/access.log` (move up and down through the file with your arrow keys, then use “q” to quit). Use _gg_ to go to the top of the file, _GG_ to go to the bottom of the file, _/_ to search for something, _n_ and _N_ to hop to the next “hit” or back to the previous one 
+- Look at just the tail end of the file with `tail /var/log/apache2/access.log` or use `head` command to see the first lines
+- Follow a log in real-time with: `tail -f /var/log/apache2/access.log` 
+- Take the output of one command and “pipe” it in as the input to another by using the `|` (pipe) symbol
+- Dump out a file with `cat`, but pipe that output to `grep` with a search term: `cat /var/log/auth.log | grep "authenticating"` or simplify to: `grep "authenticating" /var/log/auth.log`
+- Piping allows you to narrow your search, e.g. `grep "authenticating" /var/log/auth.log | grep "root"`
+- Use the `cut` command to select out most interesting portions of each line by specifying “-d” (delimiter) and “-f” (field): `grep "authenticating" /var/log/auth.log| grep "root"| cut -f 10- -d" "` (field 10 onwards, where the delimiter between field is the ” ” character)
+- Use the `-v` option to invert the selection and find attempts to login with other users: `grep "authenticating" /var/log/auth.log| grep -v "root"| cut -f 10- -d" "`
+- The output of any command can be “redirected” to a file with the “>” operator. The command: `ls -ltr > listing.txt` wouldn’t list the directory contents to your screen, but instead redirect into the file “listing.txt” (creating that file if it didn’t exist, or overwriting the contents if it did).
+
+```
+Re-run the command to list all the IP’s that have unsuccessfully tried to login to your server as _root_ - but this time, use the the “>” operator to redirect it to the file: `~/attackers.txt`. You might like to share and compare with others doing the course how heavily you’re “under attack”!
+```
+
+```bash
+$ grep -E "error.*root|root.*error" /var/log/auth.log > attackers.txt
+ubuntu@linuxupskillchallenge:~$ cat attackers.txt
+Mar 12 21:14:31 linuxupskillchallenge sshd[25118]: error: maximum authentication attempts exceeded for root from 58.177.19.73 port 36829 ssh2 [preauth]
+Mar 12 21:14:38 linuxupskillchallenge sshd[25120]: error: maximum authentication attempts exceeded for root from 58.177.19.73 port 37006 ssh2 [preauth]
+Mar 14 06:24:25 linuxupskillchallenge sshd[26843]: error: maximum authentication attempts exceeded for root from 124.244.16.188 port 37515 ssh2 [preauth]
+Mar 14 06:24:28 linuxupskillchallenge sshd[26845]: error: maximum authentication attempts exceeded for root from 124.244.16.188 port 37663 ssh2 [preauth]
+Mar 14 16:39:11 linuxupskillchallenge sshd[27777]: error: maximum authentication attempts exceeded for root from 158.174.168.185 port 48771 ssh2 [preauth]
+Mar 14 16:39:12 linuxupskillchallenge sshd[27779]: error: maximum authentication attempts exceeded for root from 158.174.168.185 port 48832 ssh2 [preauth]
+```
+
+### Extension
+
+See if you can extend your filtering of `auth.log` to select just the IP addresses, then pipe this to `sort`, and then further to `uniq` to get a list of all those IP addresses that have been “auditing” your server security for you.
+
+```bash
+$ grep -E "error.*root|root.*error" /var/log/auth.log | grep -E -o '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort | uniq
+124.244.16.188
+158.174.168.185
+58.177.19.73
+```
+
+Investigate the `awk` and `sed` commands. When you’re having difficulty figuring out how to do something with `grep` and `cut`, then you may need to step up to using these. Googling for “linux sed tricks” or “awk one liners” will get you many examples. Aim to learn at least one simple useful trick with both `awk` and `sed`
+
+```bash
+# sed commands
+$ sed 's/old_text/new_text/g' filename #Substitute 'old_text' with 'new_text' in a file
+$ sed '/pattern_to_delete/d' filename #Delete lines matching a specific pattern
+$ sed -n '/pattern_to_match/p' filename #Print only lines matching a specific pattern
+$ sed 10q filename #Print the first 10 lines of a file
+$ sed -n -e :a -e '$q;N;11,$D;ba' filename #Print the last 10 lines of a file
+$ sed 's/pattern/replacement/n' filename #Replace the nth occurrence of a pattern in each line
+$ sed 's/$/ text_to_append/' filename #Append text to the end of each line
+$ sed 's/^/text_to_insert /' filename #Insert text at the beginning of each line
+$ sed 's/^[ \t]*//' filename #Remove leading whitespace from each line
+$ sed 's/[ \t]*$//' filename #Remove trailing whitespace from each line
+$ sed -n 'start_line_number,end_line_numberp' filename #View only specified range of lines of a file
+
+# awk commands
+$ awk -F ',' '{print $1, $3}' filename.csv #Print specific columns from a CSV file
+$ awk 'length($0) > 80' filename #Print lines longer than a specific length
+$ awk 'END {print NR}' filename #Count the number of lines in a file
+$ awk '/pattern_to_match/' filename #Print lines containing a specific pattern
+$ awk '{sum += $2} END {print sum}' filename #Print the sum of values in a specific column
+$ awk '{sum += $3; count++} END {print sum/count}' filename #Print the average of values in a specific column
+$ awk 'max < $4 {max = $4} END {print max}' filename #Find the maximum value in a specific column
+$ awk -F ':' '{print $3}' filename.txt #Extract and print a specific field based on a delimiter
+$ awk '{$2 = "new_value"} 1' filename #Replace a specific field value with another value
+$ awk 'NR==FNR{a[$1]=$2; next} ($1 in a) {print $0, a[$1]}' file1 file2 #Merge two files based on a common field
+```
+
+- recent logins and `sudo` usage view in `/var/log/auth.log`
+- if the file `/var/log/auth.log` is missing, you’re probably using a minimal version of Ubuntu, use `sudo apt install rsyslog` and the file will be created
