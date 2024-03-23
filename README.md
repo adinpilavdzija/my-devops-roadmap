@@ -1,6 +1,14 @@
 # My DevOps Roadmap
 
-![roadmap logo](https://github.com/adinpilavdzija/roadmap-devops/assets/65655945/3458c144-60a3-4ee0-ac93-4f528addb04f)
+<p align="center">
+  <img name="roadmap logo" width="600" src="https://github.com/adinpilavdzija/roadmap-devops/assets/65655945/3458c144-60a3-4ee0-ac93-4f528addb04f">
+</p>
+
+<details>
+  <summary>Full roadmap</summary>
+  
+![roadmap_glow](https://github.com/adinpilavdzija/my-devops-roadmap/assets/65655945/4abb96bf-d7d0-4c3c-838e-28e267307e81)
+</details>
 
 ## [Linux Upskill Challenge](./linux_upskill_challenge/)
 
