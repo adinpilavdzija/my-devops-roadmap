@@ -168,3 +168,145 @@ $ awk 'NR==FNR{a[$1]=$2; next} ($1 in a) {print $0, a[$1]}' file1 file2 #Merge t
 
 - recent logins and `sudo` usage view in `/var/log/auth.log`
 - if the file `/var/log/auth.log` is missing, you’re probably using a minimal version of Ubuntu, use `sudo apt install rsyslog` and the file will be created
+
+## Day 9 - Diving into networking
+
+Ways of determining what ports are open on your server:
+- `ss` - “socket status” is a standard utility, replacing the older `netstat`
+- `nmap` - this “port scanner” won’t normally be installed by default
+
+There are a wide range of options that can be used with _ss_, but first try: _ss -ltpn_
+
+The output lines show which ports are open on which interfaces:
+
+```bash
+sudo ss -ltp
+State   Recv-Q  Send-Q   Local Address:Port     Peer Address:Port  Process
+LISTEN  0       4096     127.0.0.53%lo:53        0.0.0.0:*      users:(("systemd-resolve",pid=364,fd=13))
+LISTEN  0       128            0.0.0.0:22           0.0.0.0:*      users:(("sshd",pid=625,fd=3))
+LISTEN  0       128               [::]:22              [::]:*      users:(("sshd",pid=625,fd=4))
+LISTEN  0       511                  *:80                *:*      users:(("apache2",pid=106630,fd=4),("apache2",pid=106629,fd=4),("apache2",pid=106627,fd=4))` 
+
+#ports 80 and 22 open “to the world” on all local IP addresses - and port 53 (DNS) open only on a special local address
+```
+
+`nmap` works rather differently, actively probing 1,000 or more ports to check whether they’re open. It’s most famously used to scan remote machines, but it’s also very handy to check your own configuration, by scanning your server:
+
+```bash
+$ nmap localhost
+
+Starting Nmap 5.21 ( http://nmap.org ) at 2013-03-17 02:18 UTC
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.00042s latency).
+Not shown: 998 closed ports
+PORT STATE SERVICE
+22/tcp open ssh
+80/tcp open http
+
+Nmap done: 1 IP address (1 host up) scanned in 0.08 seconds` 
+```
+
+- Port 22 is providing the _ssh_ service, which is how you’re connected, so that will be open. 
+- Every open port is an increase in the “attack surface”, so it’s Best Practice to shut down services that you don’t need.
+- “localhost” (127.0.0.1) is the loopback network device. Services “bound” only to this will only be available on this local machine. 
+- We can use the `ip a` command to find the IP address of actual network card and then `nmap` that to see what’s actually exposed to others.
+
+## Host firewall
+
+The Linux kernel has built-in firewall functionality called “netfilter”. We configure and query this via various utilities, the most low-level of which are the `iptables` command, and the newer `nftables`, while we can use a more friendly `ufw` (“uncomplicated firewall”).
+
+```bash
+$ sudo iptables -L
+Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain FORWARD (policy ACCEPT)
+target     prot opt source               destination
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+
+#no firewalling - any traffic is accepted to anywhere
+```
+
+- to allow SSH usign ufw `sudo ufw allow ssh` (don’t forget to explicitly ALLOW `ssh`, or you’ll lose all contact with your server! If not allowed, the firewall assumes the port is DENIED by default)
+- to disallow HTTP usign ufw `sudo ufw deny http` (after enabling, server is no longer accessible from the “outside”, all incoming traffic to the destination port of http/80 being DROPed)
+- enable this with `sudo ufw enable` 
+<br>
+
+- Occasionally it may be reasonable to re-configure a service so that it’s provided on a non-standard port. This is particularly common advice for **ssh/22** and would be done by altering the configuration in `/etc/ssh/sshd_config`.
+- Some call this “security by obscurity”, it does effectively eliminate attacks by opportunistic hackers, which is the main threat for most servers, but you need to remember it for all the rules and security tools you already have in place.
+
+## Day 10 - Getting the computer to do your work for you
+
+- `crontab -l` - list out your user crontab entry
+- `sudo crontab -l` - list out root crontab entry
+- there’s a system-wide crontab defined in `/etc/crontab`
+
+```bash
+# m h dom mon dow user  command
+17 *    * * *   root    cd / && run-parts --report /etc/cron.hourly
+
+#explanation: Lines beginning with “#” are comments, so `# m h dom mon dow user command` defines the meanings of the columns. At 17mins after every hour, on every day, the credential for “root” will be used to run any scripts in the `/etc/cron.hourly` folder
+```
+
+- we have to look in those `/etc/cron.*` folders to see what’s actually scheduled.
+
+```bash
+$ ls -lr /etc/cron*
+-rw-r--r-- 1 root root 1136 Mar 23  2022 /etc/crontab
+
+/etc/cron.weekly:
+total 4
+-rwxr-xr-x 1 root root 1020 Mar 17  2022 man-db
+
+/etc/cron.monthly:
+total 0
+
+/etc/cron.hourly:
+total 0
+
+/etc/cron.daily:
+total 24
+-rwxr-xr-x 1 root root 1330 Mar 17  2022 man-db
+-rwxr-xr-x 1 root root  377 Jan 24  2022 logrotate
+-rwxr-xr-x 1 root root  123 Dec  5  2021 dpkg
+-rwxr-xr-x 1 root root 1478 Apr  8  2022 apt-compat
+-rwxr-xr-x 1 root root  376 Nov 11  2019 apport
+-rwxr-xr-x 1 root root  539 May  3  2023 apache2
+
+/etc/cron.d:
+total 4
+-rw-r--r-- 1 root root 201 Jan  8  2022 e2scrub_all
+```
+
+- Each of these files is a script or a shortcut to a script to do some regular task, and they’re run in alphabetic order by `run-parts`. 
+- commands `at` and `anacron` but are not likely to use them in a server.
+- The `at` command is used in Unix-like operating systems to schedule tasks to be executed once, at a specified time in the future and it's particularly useful for tasks that need to occur at a specific time without the need for recurring scheduling.
+- `anacron` is a utility used in Unix-like systems to execute commands periodically with a different approach compared to `cron` where it is designed to handle tasks that need to be executed regularly but not necessarily at precise intervals, and it's especially useful for tasks that might be missed if the system is powered off at certain times.
+- `logrotate` is a utility found in Unix-like operating systems that manages log files by rotating, compressing, and optionally emailing them for archival or deletion. It's used to prevent log files from growing too large and consuming excessive disk space, while also ensuring that log data is retained for analysis or auditing purposes. It operates based on configuration files typically found in the `/etc/logrotate.d/` directory, where users can define rules for specific log files or directories.
+- `less /var/log/syslog.1` to see how logs in server have been “rotated”
+- all major Linux distributions now include “systemd”, which can also be used to run tasks at specific times via “timers”:
+
+```bash
+$ systemctl list-timers
+NEXT                         LEFT          LAST                        PASSED       UNIT                           ACTIVATES
+Mon 2024-03-25 20:22:07 CET  4h 33min left Sat 2024-03-23 08:14:58 CET 2 days ago   motd-news.timer                motd-news.service
+Tue 2024-03-26 00:00:00 CET  8h left       n/a                         n/a          dpkg-db-backup.timer           dpkg-db-backup.service
+Tue 2024-03-26 00:00:00 CET  8h left       Mon 2024-03-25 09:47:08 CET 6h ago       logrotate.timer                logrotate.service
+Tue 2024-03-26 00:46:37 CET  8h left       Mon 2024-03-25 13:39:10 CET 2h 9min ago  apt-daily.timer                apt-daily.service
+Tue 2024-03-26 05:13:58 CET  13h left      Mon 2024-03-25 14:18:20 CET 1h 30min ago man-db.timer                   man-db.service
+Tue 2024-03-26 06:14:37 CET  14h left      Mon 2024-03-25 10:46:15 CET 5h 2min ago  apt-daily-upgrade.timer        apt-daily-upgrade.service
+Tue 2024-03-26 09:52:10 CET  18h left      Mon 2024-03-25 09:52:10 CET 5h 56min ago update-notifier-download.timer update-notifier-download.service
+Tue 2024-03-26 10:01:51 CET  18h left      Mon 2024-03-25 10:01:51 CET 5h 47min ago systemd-tmpfiles-clean.timer   systemd-tmpfiles-clean.service
+Sat 2024-03-30 14:25:57 CET  4 days left   Wed 2024-03-20 17:10:51 CET 4 days ago   update-notifier-motd.timer     update-notifier-motd.service
+Sun 2024-03-31 03:10:40 CEST 5 days left   Mon 2024-03-25 09:47:11 CET 6h ago       e2scrub_all.timer              e2scrub_all.service
+Mon 2024-04-01 00:10:28 CEST 6 days left   Mon 2024-03-25 09:52:10 CET 5h 56min ago fstrim.timer                   fstrim.service
+```
+
+### Task
+
+Schedule a job to _apt update_ and _apt upgrade_ everyday.
+
+- Edit crontab file by running `crontab -e`
+- Add the following line at the end of the file: `0 0 * * * apt update && apt upgrade -y`. This line tells `cron` to run `apt update` and `apt upgrade -y` every day at midnight. Save and exit the crontab editor.
