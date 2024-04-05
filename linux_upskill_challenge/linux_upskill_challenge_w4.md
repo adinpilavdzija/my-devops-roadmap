@@ -187,3 +187,182 @@ $ cat /etc/logrotate.d/apache2
 - default settings won’t always match your requirements, so it’s perfectly reasonable for you as the sysadmin to edit these 
 
 ## Day 19 - Inodes, symlinks and other shortcuts
+
+- Linux supports a large number of different “filesystems” - although on a server you’ll typically be dealing with just "ext3" or "ext4" and perhaps "btrfs"
+- Layer of Linux that sits above all of these is the Linux Virtual Filesystem
+- VFS is a key part of Linux, and an overview of it and some of the surrounding concepts is very useful in confidently administering a system
+<br>
+
+- Linux has an extra layer between the filename and the file’s actual data on the disk - `inode`
+- `inode` has a numerical value which you can see most easily with `-i` switch on the `ls` command or with the `stat` command:
+
+```bash
+$ ls -li /etc/hosts
+35356766 -rw------- 1 root root 260 Nov 25 04:59 /etc/hosts
+
+$ stat /etc/hosts
+  File: /etc/hosts
+  Size: 221             Blocks: 8          IO Block: 4096   regular file
+Device: ca01h/51713d    Inode: 45          Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2024-04-04 21:08:45.316000000 +0200
+Modify: 2023-12-06 23:36:20.000000000 +0100
+Change: 2023-12-07 03:13:40.967968954 +0100
+ Birth: 2023-12-07 03:13:40.967968954 +0100
+```
+
+- Every file name “points” to an inode, which in turn points to the actual data on the disk
+- several filenames could point to the same inode and hence have exactly the same contents (“hard link”)
+- the permissions, ownership and dates of filenames are actually kept at the inode level, not the filename
+
+```bash
+$ cd
+# use the `ln` (“link”) command to create a “hard link”
+$ sudo ln /etc/passwd link1
+# use the `ln -s` command to create a “symbolic link” or “symlink”
+$ ln -s /etc/passwd link2
+# use `ls -li` to view the resulting files, and `less` or `cat` to view them
+$ ls -li | grep link
+  6085 -rw-r--r--  2 root   root       2055 Mar 31 10:51 link1
+258596 lrwxrwxrwx  1 ubuntu ubuntu       11 Apr  4 21:14 link2 -> /etc/passwd
+```
+
+- permissions on a symlink generally show as allowing everthing, but what matters is the permission of the file it points to
+- symlinks are especially common for e.g. `ls -ltr /etc/rc2.d/*`. This directory holds all the scripts that start when your machine changes to “runlevel 2” (its normal running state), but you’ll see that in fact most of them are symlinks to the real scripts in "/etc/init.d"
+- It’s also very common to have something like this below (where the program “prog”, is a symlink - originally to v3, but now points to v4 (and could be pointed back if required)):
+```bash
+ prog
+ prog-v3
+ prog-v4` 
+```
+
+Hard links:
+- Only link to a file, not a directory
+- Can’t reference a file on a different disk/volume
+- Links will reference a file even if it is moved
+- Links reference inode/physical locations on the disk
+
+Symbolic (soft) links:
+- Can link to directories
+- Can reference a file/folder on a different hard disk/volume
+- Links remain if the original file is deleted
+- Links will NOT reference the file anymore if it is moved
+- Links reference abstract filenames/directories and NOT physical locations.
+- They have their own inode
+
+### Task
+
+```bash
+$ sudo ln /etc/passwd link1 # Create a hard link
+
+$ ln -s /etc/passwd link2 # Create a soft link
+
+# Create aliases
+$ alias csadin='cowsay adin'
+ubuntu@linuxupskillchallenge:~$ csadin
+ ______
+< adin >
+ ------
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+
+$ alias cdl='cd /var/log'
+$ pwd
+/home/ubuntu
+$ cdl
+$ pwd
+/var/log
+```
+
+## Day 20 - Scripting
+
+When typing at the Linux command-line you’re directly communicating with “the command interpreter”, also known as “the shell”. Normally this shell is "bash", so when you string commands together to make a script the result can be called either a ‘“shell script”, or a “bash script”.
+
+Why make a script rather than just typing commands in manually?
+- It saves typing. Remember when we searched through the logs with a long string of `grep`, `cut` and `sort` commands? If you need to do something like that more than a few times then turning it into a script saves typing and typos!
+- Parameters. One script can be used to do several things depending on what parameters you provide
+- Automation. Pop your script in `/etc/cron.daily` and it will run each day, or install a symlink to it in the appropriate `/etc/rc.d` folder and you can have it run each time the system is shut down or booted up.
+<br>
+
+- Scripts are just simple text files, but if you set the “execute” permissions on them then the system will look for a special line starting with the two characters “#” and “!” referred to as the “shebang” (or “crunchbang”) at the top of the file. This line typically looks like this: `#!/bin/bash` .
+- Normally anything starting with a “#” character would be treated as a comment, but in the first line and followed by a “!”, it’s interpreted as: “please feed the rest of this to the /bin/bash program, which will interpret it as a script”. 
+- our scripts will be written in the bash language, but scripts can also be written in many other “scripting languages”, so a script in the Perl language might start with `#!/usr/bin/perl` and one in Python `#!/usr/bin/env python3`
+<br>
+
+```bash
+# write a small script to list out who’s been most recently unsuccessfully trying to login to your server, using the entries in /var/log/auth.log
+
+$ cat attacker
+#!/bin/bash
+#
+#   attacker - prints out the last failed login attempt
+#
+echo "The last failed login attempt came from IP address:"
+grep -i "disconnected from" /var/log/auth.log|tail -1| cut -d: -f4| cut -f7 -d" "
+```
+
+- Putting comments at the top of the script like this isn’t strictly necessary (the computer ignores them), but it’s a good professional habit to get into
+- `chmod +x attacker` to make it executable 
+- to run this script, you just need to refer to it by name. Current directory is (deliberately) not in your $PATH, so you need to do this either with `/home/support/attacker` or `./attacker` 
+- Once you’re happy with a script, and want to have it easily available, move it somewhere on your $PATH. `/usr/local/bin` is a normally the appropriate place: `sudo mv attacker /usr/local/bin/attacker`. Now it will Just Work whenever you type `attacker`
+<br>
+
+- You can expand this script so that it requires a parameter and prints out some syntax help when you don’t give one
+
+```bash
+#
+##   topattack - list the most persistent attackers
+#
+if [ -z "$1" ]; then
+echo -e "\nUsage: `basename $0` <num> - Lists the top <num> attackers by IP"
+exit 0
+fi
+echo " "
+echo "Persistant recent attackers"
+echo " "
+echo "Attempts      IP "
+echo "-----------------------"
+grep "Disconnected from authenticating user root" /var/log/auth.log|cut -d: -f 4 | cut -d" " -f7|sort |uniq -c |sort -nr |head -$1
+```
+
+- you can use `whois` to find details on any of these IPs
+
+### Task
+
+```bash
+# Write a short script that list the top 3 IP addresses that tried to login into your server
+
+#!/bin/bash
+#
+#   top_attackers - prints out the top 3 IP addresses with the most failed login attempts
+#
+
+echo "Top 3 IP addresses with the most failed login attempts:"
+grep -i "disconnected from" /var/log/auth.log | awk '{print $11}' | cut -d= -f2 | sort | uniq -c | sort -nr | head -n 3
+```
+
+## Day 21 - What next?
+
+- [Server World](https://www.server-world.info/en/note?os=Ubuntu_22.04&p=httpd&f=1) for some inspiration.
+- check out any articles like “20 Linux commands every sysadmin should know”
+- [Linux Journey](https://linuxjourney.com/) 
+- [Linux 101 Hacks](https://linux.101hacks.com/toc/)
+- [SadServers.com](https://sadservers.com/)
+- [Command Line Challenge](https://cmdchallenge.com/)
+- [practicelinux.com](https://www.practicelinux.com/home)
+- [learnshell.org](https://www.learnshell.org/)
+- [commandlinefu.com](https://www.commandlinefu.com/commands/browse)
+- If your next level goal is to get into DevOps, take a look at the [DevOps Roadmap](https://roadmap.sh/devops).
+
+Certifications:
+- [CompTIA Linux+](https://www.comptia.org/certifications/linux)
+- [LPI LPIC-1: Linux Administrator](https://wiki.lpi.org/wiki/Main_Page)
+- [Red Hat](https://www.redhat.com/en/services/all-certifications-exams)
+
+Affordable professional training:
+- [LinkedIn Learning](https://www.linkedin.com/learning/search?keywords=linux)
+- [Udemy](https://www.udemy.com/topic/linux/)
+- [CBT Nuggets](https://www.cbtnuggets.com/it-training/linux-found-cert-sys-admin)
